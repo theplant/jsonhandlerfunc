@@ -1,3 +1,6 @@
+/*
+Convert Go func to http.HandleFunc that handle json request and response json
+*/
 package jsonhandlerfunc
 
 import (
@@ -82,7 +85,7 @@ func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 		for _, outVal := range outVals {
 			ov := outVal.Interface()
 			if e, ok := ov.(error); ok {
-				ov = e.Error()
+				ov = &ResponseError{Error: e.Error(), Value: e}
 			}
 			outs = append(outs, ov)
 		}
@@ -102,6 +105,14 @@ func writeJSONResponse(w http.ResponseWriter, out interface{}) {
 	}
 }
 
+/*
+The error of the Go func return values will be wrapped with this struct, So that error details can be exposed as json.
+*/
+type ResponseError struct {
+	Error string
+	Value interface{}
+}
+
 func returnError(ft reflect.Type, w http.ResponseWriter, err error) {
 	var errIndex = 0
 	errOuts := []interface{}{}
@@ -111,8 +122,7 @@ func returnError(ft reflect.Type, w http.ResponseWriter, err error) {
 			errIndex = i
 		}
 	}
-
-	errOuts[errIndex] = err.Error()
+	errOuts[errIndex] = &ResponseError{Error: err.Error(), Value: err}
 	writeJSONResponse(w, errOuts)
 	return
 }

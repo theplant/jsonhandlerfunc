@@ -1,9 +1,12 @@
 
 
+Convert Go func to http.HandleFunc that handle json request and response json
+
 
 
 
 * [To Handler Func](#to-handler-func)
+* [Type Response Error](#type-response-error)
 
 
 
@@ -16,6 +19,27 @@ ToHandlerFunc convert any go func to a http.HandleFunc,
 that will accept json.Unmarshal request body as parameters,
 and response with a body with a return values into json.
 
+
+errors should expose details in struct
+```go
+	var helloworld = func(name string, gender int) (r string, err error) {
+	    err = &complicatedError{ErrorCode: 8800, ErrorDeepReason: "It crashed."}
+	    return
+	}
+	
+	hf := ToHandlerFunc(helloworld)
+	
+	responseBody := httpPostJSON(hf, `
+	    [
+	        "Gates",
+	        1
+	    ]
+	`)
+	fmt.Println(responseBody)
+	
+	//Output:
+	// ["",{"Error":"It crashed.","Value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]
+```
 
 Very simple types will work
 ```go
@@ -56,7 +80,7 @@ Very simple types will work
 	//Output:
 	// ["Hi, Mr. Gates",null]
 	// ["Hi, Mrs. Gates",null]
-	// ["","Sorry, I don't know about your gender."]
+	// ["",{"Error":"Sorry, I don't know about your gender.","Value":{}}]
 ```
 
 Or much more complicated types still works
@@ -132,9 +156,27 @@ Or slice, maps, pointers
 	fmt.Println(responseBody)
 	
 	//Output:
-	// [null,"require 4 parameters, but only passed in 1 parameters: [ [\"Felix\"] ]"]
+	// [null,{"Error":"require 4 parameters, but only passed in 1 parameters: [ [\"Felix\"] ]","Value":{}}]
 	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
 ```
+
+
+
+## Type: Response Error
+``` go
+type ResponseError struct {
+    Error string
+    Value interface{}
+}
+```
+The error of the Go func return values will be wrapped with this struct, So that error details can be exposed as json.
+
+
+
+
+
+
+
 
 
 

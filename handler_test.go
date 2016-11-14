@@ -49,7 +49,7 @@ func ExampleToHandlerFunc_helloworld() {
 	//Output:
 	// ["Hi, Mr. Gates",null]
 	// ["Hi, Mrs. Gates",null]
-	// ["","Sorry, I don't know about your gender."]
+	// ["",{"Error":"Sorry, I don't know about your gender.","Value":{}}]
 }
 
 // Or much more complicated types still works
@@ -127,8 +127,39 @@ func ExampleToHandlerFunc_slicemapspointers() {
 	fmt.Println(responseBody)
 
 	//Output:
-	// [null,"require 4 parameters, but only passed in 1 parameters: [ [\"Felix\"] ]"]
+	// [null,{"Error":"require 4 parameters, but only passed in 1 parameters: [ [\"Felix\"] ]","Value":{}}]
 	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
+}
+
+type complicatedError struct {
+	ErrorCode       int
+	ErrorDeepReason string
+}
+
+func (ce *complicatedError) Error() string {
+	return ce.ErrorDeepReason
+}
+
+// errors should expose details in struct
+func ExampleToHandlerFunc_errors() {
+
+	var helloworld = func(name string, gender int) (r string, err error) {
+		err = &complicatedError{ErrorCode: 8800, ErrorDeepReason: "It crashed."}
+		return
+	}
+
+	hf := ToHandlerFunc(helloworld)
+
+	responseBody := httpPostJSON(hf, `
+		[
+			"Gates",
+			1
+		]
+	`)
+	fmt.Println(responseBody)
+
+	//Output:
+	// ["",{"Error":"It crashed.","Value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]
 }
 
 func httpPostJSON(hf http.HandlerFunc, req string) (r string) {
