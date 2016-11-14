@@ -20,27 +20,6 @@ that will accept json.Unmarshal request body as parameters,
 and response with a body with a return values into json.
 
 
-errors should expose details in struct
-```go
-	var helloworld = func(name string, gender int) (r string, err error) {
-	    err = &complicatedError{ErrorCode: 8800, ErrorDeepReason: "It crashed."}
-	    return
-	}
-	
-	hf := ToHandlerFunc(helloworld)
-	
-	responseBody := httpPostJSON(hf, `
-	    [
-	        "Gates",
-	        1
-	    ]
-	`)
-	fmt.Println(responseBody)
-	
-	//Output:
-	// ["",{"Error":"It crashed.","Value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]
-```
-
 Very simple types will work
 ```go
 	var helloworld = func(name string, gender int) (r string, err error) {
@@ -158,6 +137,27 @@ Or slice, maps, pointers
 	//Output:
 	// [null,{"Error":"require 4 parameters, but only passed in 1 parameters: [ [\"Felix\"] ]","Value":{}}]
 	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
+```
+
+errors should expose details in struct
+```go
+	var helloworld = func(name string, gender int) (r string, err error) {
+	    err = &complicatedError{ErrorCode: 8800, ErrorDeepReason: "It crashed."}
+	    return
+	}
+	
+	hf := ToHandlerFunc(helloworld)
+	
+	responseBody := httpPostJSON(hf, `
+	    [
+	        "Gates",
+	        1
+	    ]
+	`)
+	fmt.Println(responseBody)
+	
+	//Output:
+	// ["",{"Error":"It crashed.","Value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]
 ```
 
 

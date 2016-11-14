@@ -10,7 +10,7 @@ import (
 )
 
 // Very simple types will work
-func ExampleToHandlerFunc_helloworld() {
+func ExampleToHandlerFunc_1helloworld() {
 
 	var helloworld = func(name string, gender int) (r string, err error) {
 		if gender == 1 {
@@ -53,7 +53,7 @@ func ExampleToHandlerFunc_helloworld() {
 }
 
 // Or much more complicated types still works
-func ExampleToHandlerFunc_plainstruct() {
+func ExampleToHandlerFunc_2plainstruct() {
 
 	var helloworld = func(name string, p struct {
 		Name    string
@@ -85,7 +85,7 @@ func ExampleToHandlerFunc_plainstruct() {
 }
 
 // Or slice, maps, pointers
-func ExampleToHandlerFunc_slicemapspointers() {
+func ExampleToHandlerFunc_3slicemapspointers() {
 
 	var helloworld = func(
 		names []string,
@@ -141,7 +141,7 @@ func (ce *complicatedError) Error() string {
 }
 
 // errors should expose details in struct
-func ExampleToHandlerFunc_errors() {
+func ExampleToHandlerFunc_4errors() {
 
 	var helloworld = func(name string, gender int) (r string, err error) {
 		err = &complicatedError{ErrorCode: 8800, ErrorDeepReason: "It crashed."}
