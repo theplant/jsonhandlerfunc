@@ -6,7 +6,6 @@ package jsonhandlerfunc
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"reflect"
@@ -54,18 +53,12 @@ func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 			params = append(params, pv)
 		}
 
-		data, err := ioutil.ReadAll(r.Body)
+		dec := json.NewDecoder(r.Body)
+		defer r.Body.Close()
+
+		err := dec.Decode(&params)
 		if err != nil {
-			returnError(ft, w, err)
-			return
-		}
-		err = json.Unmarshal(data, &params)
-		if err != nil {
-			returnError(ft, w, fmt.Errorf("%s, func type: %#+v, data: %s", err, v, string(data)))
-			return
-		}
-		if len(params) != numIn {
-			returnError(ft, w, fmt.Errorf("require %d parameters, but only passed in %d parameters: %s", numIn, len(params), string(data)))
+			returnError(ft, w, fmt.Errorf("%s, func type: %#+v", err, v))
 			return
 		}
 
@@ -78,6 +71,15 @@ func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 				val = reflect.Indirect(val)
 			}
 			inVals = append(inVals, val)
+		}
+
+		if len(params) != numIn {
+			parsedParams := []interface{}{}
+			for _, rv := range inVals {
+				parsedParams = append(parsedParams, rv.Interface())
+			}
+			returnError(ft, w, fmt.Errorf("require %d parameters, but only passed in %d parameters: %#+v", numIn, len(params), parsedParams))
+			return
 		}
 
 		outVals := v.Call(inVals)
@@ -95,11 +97,8 @@ func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 }
 
 func writeJSONResponse(w http.ResponseWriter, out interface{}) {
-	outdata, err := json.Marshal(out)
-	if err != nil {
-		log.Printf("writeJSONResponse json.Marshal err: %#+v\n", err)
-	}
-	_, err = w.Write(outdata)
+	enc := json.NewEncoder(w)
+	err := enc.Encode(out)
 	if err != nil {
 		log.Printf("writeJSONResponse Write err: %#+v\n", err)
 	}

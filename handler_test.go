@@ -48,7 +48,9 @@ func ExampleToHandlerFunc_1helloworld() {
 	fmt.Println(responseBody)
 	//Output:
 	// ["Hi, Mr. Gates",null]
+	//
 	// ["Hi, Mrs. Gates",null]
+	//
 	// ["",{"Error":"Sorry, I don't know about your gender.","Value":{}}]
 }
 
@@ -127,7 +129,8 @@ func ExampleToHandlerFunc_3slicemapspointers() {
 	fmt.Println(responseBody)
 
 	//Output:
-	// [null,{"Error":"require 4 parameters, but only passed in 1 parameters: [ [\"Felix\"] ]","Value":{}}]
+	// [null,{"Error":"require 4 parameters, but only passed in 1 parameters: []interface {}{[]string{\"Felix\"}}","Value":{}}]
+	//
 	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
 }
 
