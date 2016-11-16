@@ -4,6 +4,7 @@ Convert Go func to http.HandleFunc that handle json request and response json
 package jsonhandlerfunc
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -29,11 +30,18 @@ func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 		numIn := ft.NumIn()
 		var ptrs = make([]bool, numIn)
 
+		contextType := reflect.TypeOf((*context.Context)(nil)).Elem()
+		var contextCount = 0
+
 		for i := 0; i < numIn; i++ {
 			paramType := ft.In(i)
 
-			// log.Printf("paramType: %#+v\n", paramType.String())
+			if i == 0 && paramType.Implements(contextType) {
+				contextCount = 1
+				continue
+			}
 
+			// log.Printf("paramType: %#+v\n", paramType.String())
 			ptrs[i] = true
 			var pv interface{}
 			switch paramType.Kind() {
@@ -65,6 +73,9 @@ func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 		// log.Printf("params: %#+v\n", params)
 
 		inVals := []reflect.Value{}
+		if contextCount == 1 {
+			inVals = append(inVals, reflect.ValueOf(r.Context()))
+		}
 		for i, p := range params {
 			var val = reflect.ValueOf(p)
 			if !ptrs[i] {
@@ -73,7 +84,7 @@ func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 			inVals = append(inVals, val)
 		}
 
-		if len(params) != numIn {
+		if len(params)+contextCount != numIn {
 			parsedParams := []interface{}{}
 			for _, rv := range inVals {
 				parsedParams = append(parsedParams, rv.Interface())

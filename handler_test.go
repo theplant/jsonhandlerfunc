@@ -1,6 +1,7 @@
 package jsonhandlerfunc
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -9,7 +10,7 @@ import (
 	"strings"
 )
 
-// Very simple types will work
+// #### 1) Simple types
 func ExampleToHandlerFunc_1helloworld() {
 
 	var helloworld = func(name string, gender int) (r string, err error) {
@@ -54,7 +55,7 @@ func ExampleToHandlerFunc_1helloworld() {
 	// ["",{"Error":"Sorry, I don't know about your gender.","Value":{}}]
 }
 
-// Or much more complicated types still works
+// #### 2) More complicated types
 func ExampleToHandlerFunc_2plainstruct() {
 
 	var helloworld = func(name string, p struct {
@@ -86,7 +87,7 @@ func ExampleToHandlerFunc_2plainstruct() {
 	// ["Hi, Mr. Felix, Your zipcode is 100",null]
 }
 
-// Or slice, maps, pointers
+// #### 3) Slice, maps, pointers
 func ExampleToHandlerFunc_3slicemapspointers() {
 
 	var helloworld = func(
@@ -134,6 +135,29 @@ func ExampleToHandlerFunc_3slicemapspointers() {
 	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
 }
 
+// #### 4) First context: If first parameter is a context.Context, It will be passed in with request.Context()
+func ExampleToHandlerFunc_4requestcontext() {
+	var helloworld = func(ctx context.Context, name string) (r string, err error) {
+		userid := ctx.Value("userid").(string)
+		r = fmt.Sprintf("Hello %s, My user id is %s", name, userid)
+		return
+	}
+
+	hf := ToHandlerFunc(helloworld)
+
+	middleware := func(inner http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			r = r.WithContext(context.WithValue(r.Context(), "userid", "123"))
+			inner(w, r)
+		}
+	}
+
+	responseBody := httpPostJSON(middleware(hf), `[ "Hello" ]`)
+	fmt.Println(responseBody)
+	//Output:
+	// ["Hello Hello, My user id is 123",null]
+}
+
 type complicatedError struct {
 	ErrorCode       int
 	ErrorDeepReason string
@@ -143,8 +167,8 @@ func (ce *complicatedError) Error() string {
 	return ce.ErrorDeepReason
 }
 
-// errors should expose details in struct
-func ExampleToHandlerFunc_4errors() {
+// #### 5) Errors handling with details in returned json
+func ExampleToHandlerFunc_5errors() {
 
 	var helloworld = func(name string, gender int) (r string, err error) {
 		err = &complicatedError{ErrorCode: 8800, ErrorDeepReason: "It crashed."}

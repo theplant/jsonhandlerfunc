@@ -20,7 +20,7 @@ that will accept json.Unmarshal request body as parameters,
 and response with a body with a return values into json.
 
 
-Very simple types will work
+#### 1) Simple types
 ```go
 	var helloworld = func(name string, gender int) (r string, err error) {
 	    if gender == 1 {
@@ -64,7 +64,7 @@ Very simple types will work
 	// ["",{"Error":"Sorry, I don't know about your gender.","Value":{}}]
 ```
 
-Or much more complicated types still works
+#### 2) More complicated types
 ```go
 	var helloworld = func(name string, p struct {
 	    Name    string
@@ -95,7 +95,7 @@ Or much more complicated types still works
 	// ["Hi, Mr. Felix, Your zipcode is 100",null]
 ```
 
-Or slice, maps, pointers
+#### 3) Slice, maps, pointers
 ```go
 	var helloworld = func(
 	    names []string,
@@ -142,7 +142,30 @@ Or slice, maps, pointers
 	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
 ```
 
-errors should expose details in struct
+#### 4) First context: If first parameter is a context.Context, It will be passed in with request.Context()
+```go
+	var helloworld = func(ctx context.Context, name string) (r string, err error) {
+	    userid := ctx.Value("userid").(string)
+	    r = fmt.Sprintf("Hello %s, My user id is %s", name, userid)
+	    return
+	}
+	
+	hf := ToHandlerFunc(helloworld)
+	
+	middleware := func(inner http.HandlerFunc) http.HandlerFunc {
+	    return func(w http.ResponseWriter, r *http.Request) {
+	        r = r.WithContext(context.WithValue(r.Context(), "userid", "123"))
+	        inner(w, r)
+	    }
+	}
+	
+	responseBody := httpPostJSON(middleware(hf), `[ "Hello" ]`)
+	fmt.Println(responseBody)
+	//Output:
+	// ["Hello Hello, My user id is 123",null]
+```
+
+#### 5) Errors handling with details in returned json
 ```go
 	var helloworld = func(name string, gender int) (r string, err error) {
 	    err = &complicatedError{ErrorCode: 8800, ErrorDeepReason: "It crashed."}
