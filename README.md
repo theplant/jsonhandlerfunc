@@ -137,7 +137,7 @@ and response with a body with a return values into json.
 	fmt.Println(responseBody)
 	
 	//Output:
-	// [null,{"Error":"require 4 parameters, but only passed in 1 parameters: []interface {}{[]string{\"Felix\"}}","Value":{}}]
+	// ["",{"Error":"require 4 parameters, but only passed in 1 parameters: []interface {}{[]string{\"Felix\"}}","Value":{}}]
 	//
 	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
 ```

@@ -20,10 +20,7 @@ and response with a body with a return values into json.
 func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 	v := reflect.ValueOf(serverFunc)
 	ft := v.Type()
-
-	if ft.Kind() != reflect.Func {
-		panic("must pass in a func.")
-	}
+	check(ft)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		var params []interface{}
@@ -113,6 +110,7 @@ func writeJSONResponse(w http.ResponseWriter, out interface{}) {
 	if err != nil {
 		log.Printf("writeJSONResponse Write err: %#+v\n", err)
 	}
+
 }
 
 /*
@@ -123,12 +121,36 @@ type ResponseError struct {
 	Value interface{}
 }
 
+func check(ft reflect.Type) {
+	if ft.Kind() != reflect.Func {
+		panic("must pass in a func.")
+	}
+	if !isError(ft.Out(ft.NumOut() - 1)) {
+		panic("func's last return value must be error.")
+	}
+
+	for i := 0; i < ft.NumIn(); i++ {
+		if ft.In(i).Kind() == reflect.Chan {
+			panic("func arguments can not be chan type.")
+		}
+	}
+	for i := 0; i < ft.NumOut(); i++ {
+		if ft.Out(i).Kind() == reflect.Chan {
+			panic("func return values can not be chan type.")
+		}
+	}
+}
+
+func isError(t reflect.Type) bool {
+	return t.Implements(reflect.TypeOf((*error)(nil)).Elem())
+}
+
 func returnError(ft reflect.Type, w http.ResponseWriter, err error) {
 	var errIndex = 0
 	errOuts := []interface{}{}
 	for i := 0; i < ft.NumOut(); i++ {
-		errOuts = append(errOuts, nil)
-		if ft.Out(i).Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+		errOuts = append(errOuts, reflect.Zero(ft.Out(i)).Interface())
+		if isError(ft.Out(i)) {
 			errIndex = i
 		}
 	}
