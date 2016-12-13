@@ -189,6 +189,30 @@ func ExampleToHandlerFunc_5errors() {
 	// ["",{"Error":"It crashed.","Value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]
 }
 
+// #### 6) Can use get with empty body to fetch the handler
+func ExampleToHandlerFunc_6getwithemptybody() {
+
+	var helloworld = func(ctx context.Context) (r string, err error) {
+		r = "Done"
+		return
+	}
+
+	hf := ToHandlerFunc(helloworld)
+
+	ts := httptest.NewServer(hf)
+	defer ts.Close()
+	res, err := http.Get(ts.URL)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	b, _ := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	fmt.Println(string(b))
+	//Output:
+	// ["Done",null]
+}
+
 func httpPostJSON(hf http.HandlerFunc, req string) (r string) {
 	ts := httptest.NewServer(hf)
 	defer ts.Close()

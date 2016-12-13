@@ -58,13 +58,15 @@ func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 			params = append(params, pv)
 		}
 
-		dec := json.NewDecoder(r.Body)
-		defer r.Body.Close()
+		if len(params) > 0 {
+			dec := json.NewDecoder(r.Body)
+			defer r.Body.Close()
 
-		err := dec.Decode(&params)
-		if err != nil {
-			returnError(ft, w, fmt.Errorf("%s, func type: %#+v", err, v))
-			return
+			err := dec.Decode(&params)
+			if err != nil {
+				returnError(ft, w, fmt.Errorf("%s, func type: %#+v", err, v))
+				return
+			}
 		}
 
 		// log.Printf("params: %#+v\n", params)
