@@ -234,7 +234,7 @@ func ExampleToHandlerFunc_7httpcode() {
 
 	//Output:
 	// 403
-	// ["",{"Error":"403: you can't access it","Value":{"HTTPStatusCode":403}}]
+	// ["",{"Error":"you can't access it","Value":{}}]
 }
 
 func httpPostJSON(hf http.HandlerFunc, req string) (r string) {

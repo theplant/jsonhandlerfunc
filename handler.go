@@ -101,6 +101,9 @@ func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 				if httpE, ok := e.(StatusCodeError); ok {
 					httpCode = httpE.StatusCode()
 				}
+				if codeWithErr, ok := e.(*errorWithStatusCode); ok {
+					e = codeWithErr.innerErr
+				}
 				ov = &ResponseError{Error: e.Error(), Value: e}
 			}
 			outs = append(outs, ov)
@@ -123,11 +126,11 @@ func writeJSONResponse(w http.ResponseWriter, out interface{}) {
 
 type errorWithStatusCode struct {
 	HTTPStatusCode int
-	innerError     error
+	innerErr       error
 }
 
 func (e *errorWithStatusCode) Error() string {
-	return fmt.Sprintf("%d: %s", e.HTTPStatusCode, e.innerError)
+	return fmt.Sprintf("%d: %s", e.HTTPStatusCode, e.innerErr)
 }
 
 func (e *errorWithStatusCode) StatusCode() int {

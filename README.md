@@ -239,7 +239,7 @@ and response with a body with a return values into json.
 	
 	//Output:
 	// 403
-	// ["",{"Error":"403: you can't access it","Value":{"HTTPStatusCode":403}}]
+	// ["",{"Error":"you can't access it","Value":{}}]
 ```
 
 
