@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// #### 1) Simple types
+// ### 1) Simple types
 func ExampleToHandlerFunc_1helloworld() {
 
 	var helloworld = func(name string, gender int) (r string, err error) {
@@ -55,7 +55,7 @@ func ExampleToHandlerFunc_1helloworld() {
 	// ["",{"Error":"Sorry, I don't know about your gender.","Value":{}}]
 }
 
-// #### 2) More complicated types
+// ### 2) More complicated types
 func ExampleToHandlerFunc_2plainstruct() {
 
 	var helloworld = func(name string, p struct {
@@ -87,7 +87,7 @@ func ExampleToHandlerFunc_2plainstruct() {
 	// ["Hi, Mr. Felix, Your zipcode is 100",null]
 }
 
-// #### 3) Slice, maps, pointers
+// ### 3) Slice, maps, pointers
 func ExampleToHandlerFunc_3slicemapspointers() {
 
 	var helloworld = func(
@@ -135,7 +135,7 @@ func ExampleToHandlerFunc_3slicemapspointers() {
 	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
 }
 
-// #### 4) First context: If first parameter is a context.Context, It will be passed in with request.Context()
+// ### 4) First context: If first parameter is a context.Context, It will be passed in with request.Context()
 func ExampleToHandlerFunc_4requestcontext() {
 	var helloworld = func(ctx context.Context, name string) (r string, err error) {
 		userid := ctx.Value("userid").(string)
@@ -167,7 +167,7 @@ func (ce *complicatedError) Error() string {
 	return ce.ErrorDeepReason
 }
 
-// #### 5) Errors handling with details in returned json
+// ### 5) Errors handling with details in returned json
 func ExampleToHandlerFunc_5errors() {
 
 	var helloworld = func(name string, gender int) (r string, err error) {
@@ -189,7 +189,7 @@ func ExampleToHandlerFunc_5errors() {
 	// ["",{"Error":"It crashed.","Value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]
 }
 
-// #### 6) Can use get with empty body to fetch the handler
+// ### 6) Can use get with empty body to fetch the handler
 func ExampleToHandlerFunc_6getwithemptybody() {
 
 	var helloworld = func(ctx context.Context) (r string, err error) {
@@ -213,7 +213,36 @@ func ExampleToHandlerFunc_6getwithemptybody() {
 	// ["Done",null]
 }
 
+// ### 7) Use `NewStatusCodeError` or implement `StatusCodeError` interface to set http status code of response.
+func ExampleToHandlerFunc_7httpcode() {
+
+	var helloworld = func(name string, gender int) (r string, err error) {
+		err = NewStatusCodeError(http.StatusForbidden, fmt.Errorf("you can't access it"))
+		return
+	}
+
+	hf := ToHandlerFunc(helloworld)
+
+	responseBody, code := httpPostJSONReturnCode(hf, `
+		[
+			"Gates",
+			1
+		]
+	`)
+	fmt.Println(code)
+	fmt.Println(responseBody)
+
+	//Output:
+	// 403
+	// ["",{"Error":"403: you can't access it","Value":{"HTTPStatusCode":403}}]
+}
+
 func httpPostJSON(hf http.HandlerFunc, req string) (r string) {
+	r, _ = httpPostJSONReturnCode(hf, req)
+	return
+}
+
+func httpPostJSONReturnCode(hf http.HandlerFunc, req string) (r string, code int) {
 	ts := httptest.NewServer(hf)
 	defer ts.Close()
 	res, err := http.Post(ts.URL, "application/json", strings.NewReader(req))
@@ -221,6 +250,7 @@ func httpPostJSON(hf http.HandlerFunc, req string) (r string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	code = res.StatusCode
 	b, _ := ioutil.ReadAll(res.Body)
 	res.Body.Close()
 	r = string(b)

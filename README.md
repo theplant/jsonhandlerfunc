@@ -5,9 +5,19 @@ Convert Go func to http.HandleFunc that handle json request and response json
 
 
 
+* [New Status Code Error](#new-status-code-error)
 * [To Handler Func](#to-handler-func)
 * [Type Response Error](#type-response-error)
+* [Type Status Code Error](#type-status-code-error)
 
+
+
+
+## New Status Code Error
+``` go
+func NewStatusCodeError(code int, innerError error) (err error)
+```
+NewStatusCodeError for returning an error with http code
 
 
 
@@ -20,7 +30,7 @@ that will accept json.Unmarshal request body as parameters,
 and response with a body with a return values into json.
 
 
-#### 1) Simple types
+### 1) Simple types
 ```go
 	var helloworld = func(name string, gender int) (r string, err error) {
 	    if gender == 1 {
@@ -64,7 +74,7 @@ and response with a body with a return values into json.
 	// ["",{"Error":"Sorry, I don't know about your gender.","Value":{}}]
 ```
 
-#### 2) More complicated types
+### 2) More complicated types
 ```go
 	var helloworld = func(name string, p struct {
 	    Name    string
@@ -95,7 +105,7 @@ and response with a body with a return values into json.
 	// ["Hi, Mr. Felix, Your zipcode is 100",null]
 ```
 
-#### 3) Slice, maps, pointers
+### 3) Slice, maps, pointers
 ```go
 	var helloworld = func(
 	    names []string,
@@ -142,7 +152,7 @@ and response with a body with a return values into json.
 	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
 ```
 
-#### 4) First context: If first parameter is a context.Context, It will be passed in with request.Context()
+### 4) First context: If first parameter is a context.Context, It will be passed in with request.Context()
 ```go
 	var helloworld = func(ctx context.Context, name string) (r string, err error) {
 	    userid := ctx.Value("userid").(string)
@@ -165,7 +175,7 @@ and response with a body with a return values into json.
 	// ["Hello Hello, My user id is 123",null]
 ```
 
-#### 5) Errors handling with details in returned json
+### 5) Errors handling with details in returned json
 ```go
 	var helloworld = func(name string, gender int) (r string, err error) {
 	    err = &complicatedError{ErrorCode: 8800, ErrorDeepReason: "It crashed."}
@@ -186,7 +196,7 @@ and response with a body with a return values into json.
 	// ["",{"Error":"It crashed.","Value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]
 ```
 
-#### 6) Can use get with empty body to fetch the handler
+### 6) Can use get with empty body to fetch the handler
 ```go
 	var helloworld = func(ctx context.Context) (r string, err error) {
 	    r = "Done"
@@ -209,6 +219,29 @@ and response with a body with a return values into json.
 	// ["Done",null]
 ```
 
+### 7) Use `NewStatusCodeError` or implement `StatusCodeError` interface to set http status code of response.
+```go
+	var helloworld = func(name string, gender int) (r string, err error) {
+	    err = NewStatusCodeError(http.StatusForbidden, fmt.Errorf("you can't access it"))
+	    return
+	}
+	
+	hf := ToHandlerFunc(helloworld)
+	
+	responseBody, code := httpPostJSONReturnCode(hf, `
+	    [
+	        "Gates",
+	        1
+	    ]
+	`)
+	fmt.Println(code)
+	fmt.Println(responseBody)
+	
+	//Output:
+	// 403
+	// ["",{"Error":"403: you can't access it","Value":{"HTTPStatusCode":403}}]
+```
+
 
 
 ## Type: Response Error
@@ -218,7 +251,24 @@ type ResponseError struct {
     Value interface{}
 }
 ```
-The error of the Go func return values will be wrapped with this struct, So that error details can be exposed as json.
+ResponseError is error of the Go func return values will be wrapped with this struct, So that error details can be exposed as json.
+
+
+
+
+
+
+
+
+
+
+## Type: Status Code Error
+``` go
+type StatusCodeError interface {
+    StatusCode() int
+}
+```
+StatusCodeError for the error you returned contains a `StatusCode` method, It will be set to to http response.
 
 
 

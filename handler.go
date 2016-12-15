@@ -94,13 +94,19 @@ func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 
 		outVals := v.Call(inVals)
 		var outs []interface{}
+		httpCode := http.StatusOK
 		for _, outVal := range outVals {
 			ov := outVal.Interface()
 			if e, ok := ov.(error); ok {
+				if httpE, ok := e.(StatusCodeError); ok {
+					httpCode = httpE.StatusCode()
+				}
 				ov = &ResponseError{Error: e.Error(), Value: e}
 			}
 			outs = append(outs, ov)
 		}
+		log.Printf("httpCode: %#+v\n", httpCode)
+		w.WriteHeader(httpCode)
 		writeJSONResponse(w, outs)
 		return
 	}
@@ -115,8 +121,32 @@ func writeJSONResponse(w http.ResponseWriter, out interface{}) {
 
 }
 
+type errorWithStatusCode struct {
+	HTTPStatusCode int
+	innerError     error
+}
+
+func (e *errorWithStatusCode) Error() string {
+	return fmt.Sprintf("%d: %s", e.HTTPStatusCode, e.innerError)
+}
+
+func (e *errorWithStatusCode) StatusCode() int {
+	return e.HTTPStatusCode
+}
+
+// NewStatusCodeError for returning an error with http code
+func NewStatusCodeError(code int, innerError error) (err error) {
+	err = &errorWithStatusCode{code, innerError}
+	return
+}
+
+// StatusCodeError for the error you returned contains a `StatusCode` method, It will be set to to http response.
+type StatusCodeError interface {
+	StatusCode() int
+}
+
 /*
-The error of the Go func return values will be wrapped with this struct, So that error details can be exposed as json.
+ResponseError is error of the Go func return values will be wrapped with this struct, So that error details can be exposed as json.
 */
 type ResponseError struct {
 	Error string
