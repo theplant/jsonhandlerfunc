@@ -71,7 +71,7 @@ and response with a body with a return values into json.
 	//
 	// ["Hi, Mrs. Gates",null]
 	//
-	// ["",{"Error":"Sorry, I don't know about your gender.","Value":{}}]
+	// ["",{"error":"Sorry, I don't know about your gender.","value":{}}]
 ```
 
 ### 2) More complicated types
@@ -147,7 +147,7 @@ and response with a body with a return values into json.
 	fmt.Println(responseBody)
 	
 	//Output:
-	// ["",{"Error":"require 4 parameters, but only passed in 1 parameters: []interface {}{[]string{\"Felix\"}}","Value":{}}]
+	// ["",{"error":"require 4 parameters, but only passed in 1 parameters: []interface {}{[]string{\"Felix\"}}","value":{}}]
 	//
 	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
 ```
@@ -193,7 +193,7 @@ and response with a body with a return values into json.
 	fmt.Println(responseBody)
 	
 	//Output:
-	// ["",{"Error":"It crashed.","Value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]
+	// ["",{"error":"It crashed.","value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]
 ```
 
 ### 6) Can use get with empty body to fetch the handler
@@ -239,7 +239,7 @@ and response with a body with a return values into json.
 	
 	//Output:
 	// 403
-	// ["",{"Error":"you can't access it","Value":{}}]
+	// ["",{"error":"you can't access it","value":{}}]
 ```
 
 
@@ -247,8 +247,8 @@ and response with a body with a return values into json.
 ## Type: Response Error
 ``` go
 type ResponseError struct {
-    Error string
-    Value interface{}
+    Error string      `json:"error,omitempty"`
+    Value interface{} `json:"value,omitempty"`
 }
 ```
 ResponseError is error of the Go func return values will be wrapped with this struct, So that error details can be exposed as json.

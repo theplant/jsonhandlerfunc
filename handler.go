@@ -152,8 +152,8 @@ type StatusCodeError interface {
 ResponseError is error of the Go func return values will be wrapped with this struct, So that error details can be exposed as json.
 */
 type ResponseError struct {
-	Error string
-	Value interface{}
+	Error string      `json:"error,omitempty"`
+	Value interface{} `json:"value,omitempty"`
 }
 
 func check(ft reflect.Type) {

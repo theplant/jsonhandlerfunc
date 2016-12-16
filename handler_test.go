@@ -52,7 +52,7 @@ func ExampleToHandlerFunc_1helloworld() {
 	//
 	// ["Hi, Mrs. Gates",null]
 	//
-	// ["",{"Error":"Sorry, I don't know about your gender.","Value":{}}]
+	// ["",{"error":"Sorry, I don't know about your gender.","value":{}}]
 }
 
 // ### 2) More complicated types
@@ -130,7 +130,7 @@ func ExampleToHandlerFunc_3slicemapspointers() {
 	fmt.Println(responseBody)
 
 	//Output:
-	// ["",{"Error":"require 4 parameters, but only passed in 1 parameters: []interface {}{[]string{\"Felix\"}}","Value":{}}]
+	// ["",{"error":"require 4 parameters, but only passed in 1 parameters: []interface {}{[]string{\"Felix\"}}","value":{}}]
 	//
 	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
 }
@@ -186,7 +186,7 @@ func ExampleToHandlerFunc_5errors() {
 	fmt.Println(responseBody)
 
 	//Output:
-	// ["",{"Error":"It crashed.","Value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]
+	// ["",{"error":"It crashed.","value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]
 }
 
 // ### 6) Can use get with empty body to fetch the handler
@@ -234,7 +234,7 @@ func ExampleToHandlerFunc_7httpcode() {
 
 	//Output:
 	// 403
-	// ["",{"Error":"you can't access it","Value":{}}]
+	// ["",{"error":"you can't access it","value":{}}]
 }
 
 func httpPostJSON(hf http.HandlerFunc, req string) (r string) {
