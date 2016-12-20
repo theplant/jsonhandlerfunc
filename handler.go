@@ -12,32 +12,74 @@ import (
 	"reflect"
 )
 
+func injectedParams(w http.ResponseWriter, r *http.Request, injectFunc interface{}, ft reflect.Type) (injVals []reflect.Value, shouldReturn bool) {
+	if injectFunc == nil {
+		return
+	}
+	v := reflect.ValueOf(injectFunc)
+	outVals := v.Call([]reflect.Value{reflect.ValueOf(w), reflect.ValueOf(r)})
+	var httpCode int
+	var err error
+	httpCode, _, injVals, err = returnVals(outVals)
+	if err != nil {
+		returnError(ft, w, err, httpCode)
+		shouldReturn = true
+	}
+	return
+}
+
+func contextInjector(w http.ResponseWriter, r *http.Request) (ctx context.Context, err error) {
+	ctx = r.Context()
+	return
+}
+
 /*
 ToHandlerFunc convert any go func to a http.HandleFunc,
 that will accept json.Unmarshal request body as parameters,
 and response with a body with a return values into json.
+
+The second argument is an arguments injector, it's parameter should be (w http.ResponseWriter, r *http.Request), and return values
+Will be injected to first func's first few arguments.
 */
-func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
+func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
+	if len(funcs) > 2 || len(funcs) == 0 {
+		panic("pass in one or two func, the second one is a arguments injector.")
+	}
+	var serverFunc = funcs[0]
 	v := reflect.ValueOf(serverFunc)
 	ft := v.Type()
 	check(ft)
 
+	var argsInjector interface{}
+	if len(funcs) == 2 {
+		argsInjector = funcs[1]
+		check(reflect.TypeOf(argsInjector))
+	}
+
+	// if first argument is context, use contextInjector
+	contextType := reflect.TypeOf((*context.Context)(nil)).Elem()
+	if len(funcs) == 1 && ft.NumIn() > 0 && ft.In(0).Implements(contextType) {
+		argsInjector = contextInjector
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
+		injectVals, shouldReturn := injectedParams(w, r, argsInjector, ft)
+		if shouldReturn {
+			return
+		}
+		// log.Printf("injectVals: %#+v\n", len(injectVals))
+		injectedCount := len(injectVals)
+
 		var params []interface{}
 		numIn := ft.NumIn()
 		var ptrs = make([]bool, numIn)
 
-		contextType := reflect.TypeOf((*context.Context)(nil)).Elem()
-		var contextCount = 0
-
 		for i := 0; i < numIn; i++ {
-			paramType := ft.In(i)
-
-			if i == 0 && paramType.Implements(contextType) {
-				contextCount = 1
+			if i < injectedCount {
 				continue
 			}
 
+			paramType := ft.In(i)
 			// log.Printf("paramType: %#+v\n", paramType.String())
 			ptrs[i] = true
 			var pv interface{}
@@ -61,20 +103,14 @@ func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 		if len(params) > 0 {
 			dec := json.NewDecoder(r.Body)
 			defer r.Body.Close()
-
 			err := dec.Decode(&params)
 			if err != nil {
-				returnError(ft, w, fmt.Errorf("%s, func type: %#+v", err, v))
+				returnError(ft, w, fmt.Errorf("%s, params: %#+v", err, params), http.StatusInternalServerError)
 				return
 			}
 		}
 
-		// log.Printf("params: %#+v\n", params)
-
-		inVals := []reflect.Value{}
-		if contextCount == 1 {
-			inVals = append(inVals, reflect.ValueOf(r.Context()))
-		}
+		inVals := injectVals
 		for i, p := range params {
 			var val = reflect.ValueOf(p)
 			if !ptrs[i] {
@@ -83,36 +119,48 @@ func ToHandlerFunc(serverFunc interface{}) http.HandlerFunc {
 			inVals = append(inVals, val)
 		}
 
-		if len(params)+contextCount != numIn {
+		// log.Printf("params: %#+v\n", params)
+		if len(inVals) != numIn {
 			parsedParams := []interface{}{}
 			for _, rv := range inVals {
 				parsedParams = append(parsedParams, rv.Interface())
 			}
-			returnError(ft, w, fmt.Errorf("require %d parameters, but only passed in %d parameters: %#+v", numIn, len(params), parsedParams))
+			returnError(ft, w, fmt.Errorf("require %d parameters, but passed in %d parameters: %#+v", numIn, len(inVals), parsedParams), http.StatusInternalServerError)
 			return
 		}
 
 		outVals := v.Call(inVals)
-		var outs []interface{}
-		httpCode := http.StatusOK
-		for _, outVal := range outVals {
-			ov := outVal.Interface()
-			if e, ok := ov.(error); ok {
-				if httpE, ok := e.(StatusCodeError); ok {
-					httpCode = httpE.StatusCode()
-				}
-				if codeWithErr, ok := e.(*errorWithStatusCode); ok {
-					e = codeWithErr.innerErr
-				}
-				ov = &ResponseError{Error: e.Error(), Value: e}
-			}
-			outs = append(outs, ov)
-		}
-		log.Printf("httpCode: %#+v\n", httpCode)
+		httpCode, outs, _, _ := returnVals(outVals)
 		w.WriteHeader(httpCode)
 		writeJSONResponse(w, outs)
+
 		return
 	}
+}
+
+func returnVals(outVals []reflect.Value) (httpCode int, outs []interface{}, normalVals []reflect.Value, err error) {
+	normalVals = outVals[0 : len(outVals)-1]
+	httpCode = http.StatusOK
+
+	for _, nVal := range normalVals {
+		ov := nVal.Interface()
+		outs = append(outs, ov)
+	}
+
+	last := outVals[len(outVals)-1].Interface()
+	if last != nil {
+		err = last.(error)
+		if httpE, ok := last.(StatusCodeError); ok {
+			httpCode = httpE.StatusCode()
+		}
+		if codeWithErr, ok := last.(*errorWithStatusCode); ok {
+			err = codeWithErr.innerErr
+		}
+		outs = append(outs, &ResponseError{Error: err.Error(), Value: err})
+	} else {
+		outs = append(outs, nil)
+	}
+	return
 }
 
 func writeJSONResponse(w http.ResponseWriter, out interface{}) {
@@ -180,7 +228,7 @@ func isError(t reflect.Type) bool {
 	return t.Implements(reflect.TypeOf((*error)(nil)).Elem())
 }
 
-func returnError(ft reflect.Type, w http.ResponseWriter, err error) {
+func returnError(ft reflect.Type, w http.ResponseWriter, err error, httpCode int) {
 	var errIndex = 0
 	errOuts := []interface{}{}
 	for i := 0; i < ft.NumOut(); i++ {
@@ -190,6 +238,7 @@ func returnError(ft reflect.Type, w http.ResponseWriter, err error) {
 		}
 	}
 	errOuts[errIndex] = &ResponseError{Error: err.Error(), Value: err}
+	w.WriteHeader(httpCode)
 	writeJSONResponse(w, errOuts)
 	return
 }
