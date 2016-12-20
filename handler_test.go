@@ -130,7 +130,7 @@ func ExampleToHandlerFunc_3slicemapspointers() {
 	fmt.Println(responseBody)
 
 	//Output:
-	// ["",{"error":"require 4 parameters, but only passed in 1 parameters: []interface {}{[]string{\"Felix\"}}","value":{}}]
+	// ["",{"error":"require 4 parameters, but passed in 1 parameters: []interface {}{[]string{\"Felix\"}}","value":{}}]
 	//
 	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
 }
@@ -231,10 +231,57 @@ func ExampleToHandlerFunc_7httpcode() {
 	`)
 	fmt.Println(code)
 	fmt.Println(responseBody)
-
 	//Output:
 	// 403
 	// ["",{"error":"you can't access it","value":{}}]
+}
+
+// ### 8) Pass in another injector func to get arguments from *http.Request and pass it to first func.
+// the argument injector parameters should be `func(w http.ResponseWriter, r *http.Request)`
+// the return values except the last error will be passed to the first func.
+func ExampleToHandlerFunc_7argumentsinjector() {
+	var helloworld = func(cartId int, userId string, name string, gender int) (r string, err error) {
+		r = fmt.Sprintf("cardId: %d, userId: %s, name: %s, gender: %d", cartId, userId, name, gender)
+		return
+	}
+
+	var argumentFiller = func(w http.ResponseWriter, r *http.Request) (cartId int, userId string, err error) {
+		cartId = 20
+		userId = "100"
+		return
+	}
+
+	hf := ToHandlerFunc(helloworld, argumentFiller)
+	responseBody, code := httpPostJSONReturnCode(hf, `
+		[
+			"Gates",
+			2
+		]
+	`)
+	fmt.Println(code)
+	fmt.Println(responseBody)
+
+	var argumentFillerWithError = func(w http.ResponseWriter, r *http.Request) (cartId int, userId string, err error) {
+		err = NewStatusCodeError(http.StatusForbidden, fmt.Errorf("you can't access it"))
+		return
+	}
+	hf = ToHandlerFunc(helloworld, argumentFillerWithError)
+	responseBody, code = httpPostJSONReturnCode(hf, `
+		[
+			"Gates",
+			2
+		]
+	`)
+	fmt.Println(code)
+	fmt.Println(responseBody)
+
+	//Output:
+	// 200
+	// ["cardId: 20, userId: 100, name: Gates, gender: 2",null]
+
+	// 	403
+	// ["",{"error":"you can't access it","value":{}}]
+
 }
 
 func httpPostJSON(hf http.HandlerFunc, req string) (r string) {
