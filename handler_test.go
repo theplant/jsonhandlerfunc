@@ -239,19 +239,19 @@ func ExampleToHandlerFunc_7httpcode() {
 // ### 8) Pass in another injector func to get arguments from *http.Request and pass it to first func.
 // the argument injector parameters should be `func(w http.ResponseWriter, r *http.Request)`
 // the return values except the last error will be passed to the first func.
-func ExampleToHandlerFunc_7argumentsinjector() {
+func ExampleToHandlerFunc_8argumentsinjector() {
 	var helloworld = func(cartId int, userId string, name string, gender int) (r string, err error) {
 		r = fmt.Sprintf("cardId: %d, userId: %s, name: %s, gender: %d", cartId, userId, name, gender)
 		return
 	}
 
-	var argumentFiller = func(w http.ResponseWriter, r *http.Request) (cartId int, userId string, err error) {
+	var argsInjector = func(w http.ResponseWriter, r *http.Request) (cartId int, userId string, err error) {
 		cartId = 20
 		userId = "100"
 		return
 	}
 
-	hf := ToHandlerFunc(helloworld, argumentFiller)
+	hf := ToHandlerFunc(helloworld, argsInjector)
 	responseBody, code := httpPostJSONReturnCode(hf, `
 		[
 			"Gates",
@@ -261,11 +261,11 @@ func ExampleToHandlerFunc_7argumentsinjector() {
 	fmt.Println(code)
 	fmt.Println(responseBody)
 
-	var argumentFillerWithError = func(w http.ResponseWriter, r *http.Request) (cartId int, userId string, err error) {
+	var argsInjectorWithError = func(w http.ResponseWriter, r *http.Request) (cartId int, userId string, err error) {
 		err = NewStatusCodeError(http.StatusForbidden, fmt.Errorf("you can't access it"))
 		return
 	}
-	hf = ToHandlerFunc(helloworld, argumentFillerWithError)
+	hf = ToHandlerFunc(helloworld, argsInjectorWithError)
 	responseBody, code = httpPostJSONReturnCode(hf, `
 		[
 			"Gates",
@@ -274,12 +274,11 @@ func ExampleToHandlerFunc_7argumentsinjector() {
 	`)
 	fmt.Println(code)
 	fmt.Println(responseBody)
-
 	//Output:
 	// 200
 	// ["cardId: 20, userId: 100, name: Gates, gender: 2",null]
-
-	// 	403
+	//
+	// 403
 	// ["",{"error":"you can't access it","value":{}}]
 
 }
