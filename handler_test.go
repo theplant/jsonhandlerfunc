@@ -237,6 +237,20 @@ func ExampleToHandlerFunc_7httpcode() {
 	// ["",{"error":"you can't access it","value":{}}]
 }
 
+// ### 8)
+func ExampleToHandlerFunc_7fillarguments() {
+	var helloworld = func(cartId int, userId string, name string, gender int) (r string, err error) {
+		err = NewStatusCodeError(http.StatusForbidden, fmt.Errorf("you can't access it"))
+		return
+	}
+
+	var argumentFiller = func(w http.ResponseWriter, r *http.Request) (cartId int, userId string) {
+		cartId = r.Context().Value("cartId").(int)
+		return
+	}
+	hf := ToHandlerFunc(helloworld, argumentFiller)
+}
+
 func httpPostJSON(hf http.HandlerFunc, req string) (r string) {
 	r, _ = httpPostJSONReturnCode(hf, req)
 	return
