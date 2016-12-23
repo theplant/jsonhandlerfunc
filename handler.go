@@ -42,30 +42,37 @@ The second argument is an arguments injector, it's parameter should be (w http.R
 Will be injected to first func's first few arguments.
 */
 func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
-	if len(funcs) > 2 || len(funcs) == 0 {
-		panic("pass in one or two func, the second one is a arguments injector.")
+	if len(funcs) == 0 {
+		panic("pass in one or more func, from the second one is all arguments injector.")
 	}
 	var serverFunc = funcs[0]
 	v := reflect.ValueOf(serverFunc)
 	ft := v.Type()
 	check(ft)
 
-	var argsInjector interface{}
-	if len(funcs) == 2 {
-		argsInjector = funcs[1]
-		check(reflect.TypeOf(argsInjector))
+	var argsInjectors []interface{}
+	for i, injector := range funcs {
+		if i == 0 {
+			continue
+		}
+		check(reflect.TypeOf(injector))
+		argsInjectors = append(argsInjectors, injector)
 	}
 
 	// if first argument is context, use contextInjector
 	contextType := reflect.TypeOf((*context.Context)(nil)).Elem()
 	if len(funcs) == 1 && ft.NumIn() > 0 && ft.In(0).Implements(contextType) {
-		argsInjector = contextInjector
+		argsInjectors = append(argsInjectors, contextInjector)
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		injectVals, shouldReturn := injectedParams(w, r, argsInjector, ft)
-		if shouldReturn {
-			return
+		var injectVals []reflect.Value
+		for _, injector := range argsInjectors {
+			thisInjectVals, shouldReturn := injectedParams(w, r, injector, ft)
+			if shouldReturn {
+				return
+			}
+			injectVals = append(injectVals, thisInjectVals...)
 		}
 		// log.Printf("injectVals: %#+v\n", len(injectVals))
 		injectedCount := len(injectVals)

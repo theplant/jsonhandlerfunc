@@ -282,12 +282,35 @@ the return values except the last error will be passed to the first func.
 	`)
 	fmt.Println(code)
 	fmt.Println(responseBody)
+	
+	// You can pass more injectors to addup provide arguments from beginning.
+	var cardItInjector = func(w http.ResponseWriter, r *http.Request) (cartId int, err error) {
+	    cartId = 30
+	    return
+	}
+	var userIdInjecter = func(w http.ResponseWriter, r *http.Request) (userId string, err error) {
+	    userId = "300"
+	    return
+	}
+	hf = ToHandlerFunc(helloworld, cardItInjector, userIdInjecter)
+	responseBody, code = httpPostJSONReturnCode(hf, `
+	    [
+	        "Gates",
+	        2
+	    ]
+	`)
+	fmt.Println(code)
+	fmt.Println(responseBody)
+	
 	//Output:
 	// 200
 	// ["cardId: 20, userId: 100, name: Gates, gender: 2",null]
 	//
 	// 403
 	// ["",{"error":"you can't access it","value":{}}]
+	//
+	// 200
+	// ["cardId: 30, userId: 300, name: Gates, gender: 2",null]
 ```
 
 
