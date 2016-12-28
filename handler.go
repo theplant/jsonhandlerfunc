@@ -110,7 +110,10 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 		if len(params) > 0 {
 			dec := json.NewDecoder(r.Body)
 			defer r.Body.Close()
-			err := dec.Decode(&params)
+			req := Req{
+				Params: &params,
+			}
+			err := dec.Decode(&req)
 			if err != nil {
 				returnError(ft, w, fmt.Errorf("%s, params: %#+v", err, params), http.StatusInternalServerError)
 				return
@@ -172,11 +175,10 @@ func returnVals(outVals []reflect.Value) (httpCode int, outs []interface{}, norm
 
 func writeJSONResponse(w http.ResponseWriter, out interface{}) {
 	enc := json.NewEncoder(w)
-	err := enc.Encode(out)
+	err := enc.Encode(Resp{Results: out})
 	if err != nil {
 		log.Printf("writeJSONResponse Write err: %#+v\n", err)
 	}
-
 }
 
 type errorWithStatusCode struct {
@@ -209,6 +211,14 @@ ResponseError is error of the Go func return values will be wrapped with this st
 type ResponseError struct {
 	Error string      `json:"error,omitempty"`
 	Value interface{} `json:"value,omitempty"`
+}
+
+type Req struct {
+	Params interface{} `json:"params"`
+}
+
+type Resp struct {
+	Results interface{} `json:"results"`
 }
 
 func check(ft reflect.Type) {
