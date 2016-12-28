@@ -7,6 +7,8 @@ Convert Go func to http.HandleFunc that handle json request and response json
 
 * [New Status Code Error](#new-status-code-error)
 * [To Handler Func](#to-handler-func)
+* [Type Req](#type-req)
+* [Type Resp](#type-resp)
 * [Type Response Error](#type-response-error)
 * [Type Status Code Error](#type-status-code-error)
 
@@ -49,32 +51,32 @@ Will be injected to first func's first few arguments.
 	hf := ToHandlerFunc(helloworld)
 	
 	responseBody := httpPostJSON(hf, `
-	    [
+	    {"params": [
 	        "Gates",
 	        1
-	    ]
+	    ]}
 	`)
 	fmt.Println(responseBody)
 	responseBody = httpPostJSON(hf, `
-	    [
+	    {"params": [
 	        "Gates",
 	        2
-	    ]
+	    ]}
 	`)
 	fmt.Println(responseBody)
 	responseBody = httpPostJSON(hf, `
-	    [
+	    {"params": [
 	        "Gates",
 	        3
-	    ]
+	    ]}
 	`)
 	fmt.Println(responseBody)
 	//Output:
-	// ["Hi, Mr. Gates",null]
+	// {"results":["Hi, Mr. Gates",null]}
 	//
-	// ["Hi, Mrs. Gates",null]
+	// {"results":["Hi, Mrs. Gates",null]}
 	//
-	// ["",{"error":"Sorry, I don't know about your gender.","value":{}}]
+	// {"results":["",{"error":"Sorry, I don't know about your gender.","value":{}}]}
 ```
 
 ### 2) More complicated types
@@ -93,19 +95,19 @@ Will be injected to first func's first few arguments.
 	hf := ToHandlerFunc(helloworld)
 	
 	responseBody := httpPostJSON(hf, `
-	    [
+	    {"params": [
 	        "Felix",
 	        {
 	            "Address": {
 	                "Zipcode": 100
 	            }
 	        }
-	    ]
+	    ]}
 	`)
 	fmt.Println(responseBody)
 	
 	//Output:
-	// ["Hi, Mr. Felix, Your zipcode is 100",null]
+	// {"results":["Hi, Mr. Felix, Your zipcode is 100",null]}
 ```
 
 ### 3) Slice, maps, pointers
@@ -128,11 +130,11 @@ Will be injected to first func's first few arguments.
 	
 	hf := ToHandlerFunc(helloworld)
 	
-	responseBody := httpPostJSON(hf, `[ ["Felix"] ]`)
+	responseBody := httpPostJSON(hf, `{"params":[ ["Felix"] ]}`)
 	fmt.Println(responseBody)
 	
 	responseBody = httpPostJSON(hf, `
-	    [
+	    {"params": [
 	        ["Felix", "Gates"],
 	        {
 	            "Felix": "Male",
@@ -145,14 +147,14 @@ Will be injected to first func's first few arguments.
 	            }
 	        },
 	        ["p1", "p2"]
-	    ]
+	    ]}
 	`)
 	fmt.Println(responseBody)
 	
 	//Output:
-	// ["",{"error":"require 4 parameters, but passed in 1 parameters: []interface {}{[]string{\"Felix\"}}","value":{}}]
+	// {"results":["",{"error":"require 4 parameters, but passed in 1 parameters: []interface {}{[]string{\"Felix\"}}","value":{}}]}
 	//
-	// ["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]
+	// {"results":["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]}
 ```
 
 ### 4) First context: If first parameter is a context.Context, It will be passed in with request.Context()
@@ -172,10 +174,10 @@ Will be injected to first func's first few arguments.
 	    }
 	}
 	
-	responseBody := httpPostJSON(middleware(hf), `[ "Hello" ]`)
+	responseBody := httpPostJSON(middleware(hf), `{"params": [ "Hello" ]}`)
 	fmt.Println(responseBody)
 	//Output:
-	// ["Hello Hello, My user id is 123",null]
+	// {"results":["Hello Hello, My user id is 123",null]}
 ```
 
 ### 5) Errors handling with details in returned json
@@ -188,15 +190,15 @@ Will be injected to first func's first few arguments.
 	hf := ToHandlerFunc(helloworld)
 	
 	responseBody := httpPostJSON(hf, `
-	    [
+	    {"params": [
 	        "Gates",
 	        1
-	    ]
+	    ]}
 	`)
 	fmt.Println(responseBody)
 	
 	//Output:
-	// ["",{"error":"It crashed.","value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]
+	// {"results":["",{"error":"It crashed.","value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]}
 ```
 
 ### 6) Can use get with empty body to fetch the handler
@@ -219,7 +221,7 @@ Will be injected to first func's first few arguments.
 	res.Body.Close()
 	fmt.Println(string(b))
 	//Output:
-	// ["Done",null]
+	// {"results":["Done",null]}
 ```
 
 ### 7) Use `NewStatusCodeError` or implement `StatusCodeError` interface to set http status code of response.
@@ -232,16 +234,16 @@ Will be injected to first func's first few arguments.
 	hf := ToHandlerFunc(helloworld)
 	
 	responseBody, code := httpPostJSONReturnCode(hf, `
-	    [
+	    {"params": [
 	        "Gates",
 	        1
-	    ]
+	    ]}
 	`)
 	fmt.Println(code)
 	fmt.Println(responseBody)
 	//Output:
 	// 403
-	// ["",{"error":"you can't access it","value":{}}]
+	// {"results":["",{"error":"you can't access it","value":{}}]}
 ```
 
 ### 8) Pass in another injector func to get arguments from *http.Request and pass it to first func.
@@ -261,10 +263,10 @@ the return values except the last error will be passed to the first func.
 	
 	hf := ToHandlerFunc(helloworld, argsInjector)
 	responseBody, code := httpPostJSONReturnCode(hf, `
-	    [
+	    {"params": [
 	        "Gates",
 	        2
-	    ]
+	    ]}
 	`)
 	fmt.Println(code)
 	fmt.Println(responseBody)
@@ -275,10 +277,10 @@ the return values except the last error will be passed to the first func.
 	}
 	hf = ToHandlerFunc(helloworld, argsInjectorWithError)
 	responseBody, code = httpPostJSONReturnCode(hf, `
-	    [
+	    {"params": [
 	        "Gates",
 	        2
-	    ]
+	    ]}
 	`)
 	fmt.Println(code)
 	fmt.Println(responseBody)
@@ -294,24 +296,54 @@ the return values except the last error will be passed to the first func.
 	}
 	hf = ToHandlerFunc(helloworld, cardItInjector, userIdInjecter)
 	responseBody, code = httpPostJSONReturnCode(hf, `
-	    [
+	    {"params": [
 	        "Gates",
 	        2
-	    ]
+	    ]}
 	`)
 	fmt.Println(code)
 	fmt.Println(responseBody)
 	
 	//Output:
 	// 200
-	// ["cardId: 20, userId: 100, name: Gates, gender: 2",null]
+	// {"results":["cardId: 20, userId: 100, name: Gates, gender: 2",null]}
 	//
 	// 403
-	// ["",{"error":"you can't access it","value":{}}]
+	// {"results":["",{"error":"you can't access it","value":{}}]}
 	//
 	// 200
-	// ["cardId: 30, userId: 300, name: Gates, gender: 2",null]
+	// {"results":["cardId: 30, userId: 300, name: Gates, gender: 2",null]}
 ```
+
+
+
+## Type: Req
+``` go
+type Req struct {
+    Params interface{} `json:"params"`
+}
+```
+
+
+
+
+
+
+
+
+
+## Type: Resp
+``` go
+type Resp struct {
+    Results interface{} `json:"results"`
+}
+```
+
+
+
+
+
+
 
 
 
