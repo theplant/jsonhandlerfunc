@@ -174,6 +174,7 @@ func returnVals(outVals []reflect.Value) (httpCode int, outs []interface{}, norm
 }
 
 func writeJSONResponse(w http.ResponseWriter, out interface{}) {
+	w.Header().Set("Content-Type", "application/json")
 	enc := json.NewEncoder(w)
 	err := enc.Encode(Resp{Results: out})
 	if err != nil {
