@@ -33,6 +33,13 @@ func contextInjector(w http.ResponseWriter, r *http.Request) (ctx context.Contex
 	return
 }
 
+type needIndirectValue struct {
+	needIndirect bool
+	val          interface{}
+}
+
+var errorNil = reflect.Zero(reflect.TypeOf((*error)(nil)).Elem())
+
 /*
 ToHandlerFunc convert any go func to a http.HandleFunc,
 that will accept json.Unmarshal request body as parameters,
@@ -49,20 +56,31 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 	v := reflect.ValueOf(serverFunc)
 	ft := v.Type()
 	check(ft)
-
+	var firstIsAlsoInjector bool
 	var argsInjectors []interface{}
 	for i, injector := range funcs {
+		injt := reflect.TypeOf(injector)
 		if i == 0 {
-			continue
+			if isInjector(injt) {
+				firstIsAlsoInjector = true
+			} else {
+				continue
+			}
 		}
-		check(reflect.TypeOf(injector))
+		check(injt)
+		if !isInjector(injt) {
+			panic("injector params must be func(w http.ResponseWriter, r *http.Request) ...")
+		}
 		argsInjectors = append(argsInjectors, injector)
 	}
-
 	// if first argument is context, use contextInjector
 	contextType := reflect.TypeOf((*context.Context)(nil)).Elem()
 	if len(funcs) == 1 && ft.NumIn() > 0 && ft.In(0).Implements(contextType) {
 		argsInjectors = append(argsInjectors, contextInjector)
+	}
+
+	if !firstIsAlsoInjector {
+		checkInjectorsType(ft, argsInjectors)
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -74,6 +92,15 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 			}
 			injectVals = append(injectVals, thisInjectVals...)
 		}
+
+		if firstIsAlsoInjector {
+			injectVals = append(injectVals, errorNil)
+			httpCode, outs, _, _ := returnVals(injectVals)
+			w.WriteHeader(httpCode)
+			writeJSONResponse(w, outs)
+			return
+		}
+
 		// log.Printf("injectVals: %#+v\n", len(injectVals))
 		injectedCount := len(injectVals)
 
@@ -123,13 +150,12 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 		inVals := injectVals
 		for i, p := range params {
 			var val = reflect.ValueOf(p)
-			if !ptrs[i] {
+			if !ptrs[i+injectedCount] {
 				val = reflect.Indirect(val)
 			}
 			inVals = append(inVals, val)
 		}
 
-		// log.Printf("params: %#+v\n", params)
 		if len(inVals) != numIn {
 			parsedParams := []interface{}{}
 			for _, rv := range inVals {
@@ -222,6 +248,47 @@ type Resp struct {
 	Results interface{} `json:"results"`
 }
 
+func checkInjectorsType(ft reflect.Type, injectors []interface{}) {
+
+	var injectedTypes []reflect.Type
+	for _, inj := range injectors {
+		injt := reflect.TypeOf(inj)
+		for i := 0; i < injt.NumOut()-1; i++ {
+			injectedTypes = append(injectedTypes, injt.Out(i))
+		}
+	}
+
+	var argTypes []reflect.Type
+	for i := 0; i < ft.NumIn(); i++ {
+		if i >= len(injectedTypes) {
+			break
+		}
+		argTypes = append(argTypes, ft.In(i))
+	}
+
+	var injectedTypesStr = fmt.Sprintf("%+v", injectedTypes)
+	var argTypesStr = fmt.Sprintf("%+v", argTypes)
+	if !typesAssignableTo(injectedTypes, argTypes) {
+		panic(fmt.Sprintf("%+v params type is %s, but injecting %s", ft, argTypesStr, injectedTypesStr))
+	}
+
+}
+
+func typesAssignableTo(toTypes []reflect.Type, fromTypes []reflect.Type) bool {
+	if len(toTypes) != len(fromTypes) {
+		return false
+	}
+	if len(toTypes) == 0 {
+		return true
+	}
+	for i, _ := range toTypes {
+		if !fromTypes[i].AssignableTo(toTypes[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 func check(ft reflect.Type) {
 	if ft.Kind() != reflect.Func {
 		panic("must pass in a func.")
@@ -240,6 +307,21 @@ func check(ft reflect.Type) {
 			panic("func return values can not be chan type.")
 		}
 	}
+}
+
+func isInjector(ft reflect.Type) bool {
+	expectedTypes := []reflect.Type{
+		reflect.TypeOf((*http.ResponseWriter)(nil)).Elem(),
+		reflect.TypeOf((*http.Request)(nil)),
+	}
+	actualTypes := []reflect.Type{}
+	for i := 0; i < ft.NumIn(); i++ {
+		actualTypes = append(actualTypes, ft.In(i))
+	}
+	if !typesAssignableTo(actualTypes, expectedTypes) {
+		return false
+	}
+	return true
 }
 
 func isError(t reflect.Type) bool {

@@ -304,6 +304,12 @@ the return values except the last error will be passed to the first func.
 	fmt.Println(code)
 	fmt.Println(responseBody)
 	
+	// You can also pass only one injector without main func
+	hf = ToHandlerFunc(cardItInjector)
+	responseBody, code = httpPostJSONReturnCode(hf, "")
+	fmt.Println(code)
+	fmt.Println(responseBody)
+	
 	//Output:
 	// 200
 	// {"results":["cardId: 20, userId: 100, name: Gates, gender: 2",null]}
@@ -313,6 +319,31 @@ the return values except the last error will be passed to the first func.
 	//
 	// 200
 	// {"results":["cardId: 30, userId: 300, name: Gates, gender: 2",null]}
+	//
+	// 200
+	// {"results":[30,null]}
+```
+
+### 9) panic if injectors type not match
+```go
+	defer func() {
+	    if r := recover(); r != nil {
+	        fmt.Println(r)
+	    }
+	}()
+	
+	var inj = func(w http.ResponseWriter, r *http.Request) (a *http.Request, b float64, c string, err error) {
+	    return
+	}
+	
+	var f = func(a, b, c string) (err error) {
+	    return
+	}
+	
+	ToHandlerFunc(f, inj)
+	fmt.Println("DONE")
+	//Output:
+	// func(string, string, string) error params type is [string string string], but injecting [*http.Request float64 string]
 ```
 
 
