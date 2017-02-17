@@ -105,6 +105,7 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 		injectedCount := len(injectVals)
 
 		var params []interface{}
+		var notNilParams []interface{}
 		numIn := ft.NumIn()
 		var ptrs = make([]bool, numIn)
 
@@ -130,8 +131,8 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 				ptrs[i] = false
 			}
 			// log.Printf("pv: %#+v\n", pv)
-
 			params = append(params, pv)
+			notNilParams = append(notNilParams, pv)
 		}
 
 		if len(params) > 0 {
@@ -149,7 +150,12 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 
 		inVals := injectVals
 		for i, p := range params {
+
 			var val = reflect.ValueOf(p)
+			if !val.IsValid() {
+				val = reflect.ValueOf(notNilParams[i])
+			}
+
 			if !ptrs[i+injectedCount] {
 				val = reflect.Indirect(val)
 			}

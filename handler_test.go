@@ -350,7 +350,7 @@ func ExampleForPointerAddress_injectorbug() {
 	}
 
 	var f = func(a, b, c string, add *Address) (err error) {
-		err = errors.New(add.Name)
+		err = errors.New(fmt.Sprintf("error %+v", add.Name))
 		return
 	}
 	hf := ToHandlerFunc(f, inj)
@@ -363,8 +363,16 @@ func ExampleForPointerAddress_injectorbug() {
 		]}
 	`)
 	fmt.Println(responseBody)
+	responseBody = httpPostJSON(hf, `
+		{"params": [
+			null
+		]}
+	`)
+	fmt.Println(responseBody)
 	//Output:
-	//{"results":[{"error":"Felix","value":{}}]}
+	//{"results":[{"error":"error Felix","value":{}}]}
+	//
+	//{"results":[{"error":"error ","value":{}}]}
 
 }
 
