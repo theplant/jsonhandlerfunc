@@ -143,7 +143,7 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 			}
 			err := dec.Decode(&req)
 			if err != nil {
-				returnError(ft, w, fmt.Errorf("%s, params: %#+v", err, params), http.StatusInternalServerError)
+				returnError(ft, w, fmt.Errorf("%s, params: %#+v", err, params), http.StatusUnprocessableEntity)
 				return
 			}
 		}
@@ -167,7 +167,7 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 			for _, rv := range inVals {
 				parsedParams = append(parsedParams, rv.Interface())
 			}
-			returnError(ft, w, fmt.Errorf("require %d parameters, but passed in %d parameters: %#+v", numIn, len(inVals), parsedParams), http.StatusInternalServerError)
+			returnError(ft, w, fmt.Errorf("require %d parameters, but passed in %d parameters: %#+v", numIn, len(inVals), parsedParams), http.StatusUnprocessableEntity)
 			return
 		}
 
