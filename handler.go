@@ -12,7 +12,13 @@ import (
 	"reflect"
 )
 
-func injectedParams(w http.ResponseWriter, r *http.Request, injectFunc interface{}, ft reflect.Type) (injVals []reflect.Value, shouldReturn bool) {
+type Config struct {
+	ErrHandler func(oldErr error) (newErr error)
+}
+
+var defaultConfig *Config = &Config{}
+
+func (cfg *Config) injectedParams(w http.ResponseWriter, r *http.Request, injectFunc interface{}, ft reflect.Type) (injVals []reflect.Value, shouldReturn bool) {
 	if injectFunc == nil {
 		return
 	}
@@ -20,9 +26,9 @@ func injectedParams(w http.ResponseWriter, r *http.Request, injectFunc interface
 	outVals := v.Call([]reflect.Value{reflect.ValueOf(w), reflect.ValueOf(r)})
 	var httpCode int
 	var err error
-	httpCode, _, injVals, err = returnVals(outVals)
+	httpCode, _, injVals, err = cfg.returnVals(outVals)
 	if err != nil {
-		returnError(ft, w, err, httpCode)
+		cfg.returnError(ft, w, err, httpCode)
 		shouldReturn = true
 	}
 	return
@@ -49,6 +55,11 @@ The second argument is an arguments injector, it's parameter should be (w http.R
 Will be injected to first func's first few arguments.
 */
 func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
+	return defaultConfig.ToHandlerFunc(funcs...)
+}
+
+func (cfg *Config) ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
+
 	if len(funcs) == 0 {
 		panic("pass in one or more func, from the second one is all arguments injector.")
 	}
@@ -86,7 +97,7 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var injectVals []reflect.Value
 		for _, injector := range argsInjectors {
-			thisInjectVals, shouldReturn := injectedParams(w, r, injector, ft)
+			thisInjectVals, shouldReturn := cfg.injectedParams(w, r, injector, ft)
 			if shouldReturn {
 				return
 			}
@@ -95,7 +106,7 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 
 		if firstIsAlsoInjector {
 			injectVals = append(injectVals, errorNil)
-			httpCode, outs, _, _ := returnVals(injectVals)
+			httpCode, outs, _, _ := cfg.returnVals(injectVals)
 			w.WriteHeader(httpCode)
 			writeJSONResponse(w, outs)
 			return
@@ -143,7 +154,7 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 			}
 			err := dec.Decode(&req)
 			if err != nil {
-				returnError(ft, w, fmt.Errorf("%s, params: %#+v", err, params), http.StatusUnprocessableEntity)
+				cfg.returnError(ft, w, fmt.Errorf("%s, params: %#+v", err, params), http.StatusUnprocessableEntity)
 				return
 			}
 		}
@@ -167,12 +178,12 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 			for _, rv := range inVals {
 				parsedParams = append(parsedParams, rv.Interface())
 			}
-			returnError(ft, w, fmt.Errorf("require %d parameters, but passed in %d parameters: %#+v", numIn, len(inVals), parsedParams), http.StatusUnprocessableEntity)
+			cfg.returnError(ft, w, fmt.Errorf("require %d parameters, but passed in %d parameters: %#+v", numIn, len(inVals), parsedParams), http.StatusUnprocessableEntity)
 			return
 		}
 
 		outVals := v.Call(inVals)
-		httpCode, outs, _, _ := returnVals(outVals)
+		httpCode, outs, _, _ := cfg.returnVals(outVals)
 		w.WriteHeader(httpCode)
 		writeJSONResponse(w, outs)
 
@@ -180,7 +191,7 @@ func ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 	}
 }
 
-func returnVals(outVals []reflect.Value) (httpCode int, outs []interface{}, normalVals []reflect.Value, err error) {
+func (cfg *Config) returnVals(outVals []reflect.Value) (httpCode int, outs []interface{}, normalVals []reflect.Value, err error) {
 	normalVals = outVals[0 : len(outVals)-1]
 	httpCode = http.StatusOK
 
@@ -197,6 +208,9 @@ func returnVals(outVals []reflect.Value) (httpCode int, outs []interface{}, norm
 		}
 		if codeWithErr, ok := last.(*errorWithStatusCode); ok {
 			err = codeWithErr.innerErr
+		}
+		if cfg.ErrHandler != nil {
+			err = cfg.ErrHandler(err)
 		}
 		outs = append(outs, &ResponseError{Error: err.Error(), Value: err})
 	} else {
@@ -334,7 +348,7 @@ func isError(t reflect.Type) bool {
 	return t.Implements(reflect.TypeOf((*error)(nil)).Elem())
 }
 
-func returnError(ft reflect.Type, w http.ResponseWriter, err error, httpCode int) {
+func (cfg *Config) returnError(ft reflect.Type, w http.ResponseWriter, err error, httpCode int) {
 	var errIndex = 0
 	errOuts := []interface{}{}
 	for i := 0; i < ft.NumOut(); i++ {
@@ -342,6 +356,9 @@ func returnError(ft reflect.Type, w http.ResponseWriter, err error, httpCode int
 		if isError(ft.Out(i)) {
 			errIndex = i
 		}
+	}
+	if cfg.ErrHandler != nil {
+		err = cfg.ErrHandler(err)
 	}
 	errOuts[errIndex] = &ResponseError{Error: err.Error(), Value: err}
 	w.WriteHeader(httpCode)

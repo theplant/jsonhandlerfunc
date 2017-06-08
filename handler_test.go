@@ -1,4 +1,4 @@
-package jsonhandlerfunc
+package jsonhandlerfunc_test
 
 import (
 	"context"
@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+
+	"github.com/theplant/jsonhandlerfunc"
 )
 
 // ### 1) Simple types
-func ExampleToHandlerFunc_1helloworld() {
+func ExampleToHandlerFunc_01helloworld() {
 
 	var helloworld = func(name string, gender int) (r string, err error) {
 		if gender == 1 {
@@ -25,7 +27,7 @@ func ExampleToHandlerFunc_1helloworld() {
 		return
 	}
 
-	hf := ToHandlerFunc(helloworld)
+	hf := jsonhandlerfunc.ToHandlerFunc(helloworld)
 
 	responseBody := httpPostJSON(hf, `
 		{"params": [
@@ -57,7 +59,7 @@ func ExampleToHandlerFunc_1helloworld() {
 }
 
 // ### 2) More complicated types
-func ExampleToHandlerFunc_2plainstruct() {
+func ExampleToHandlerFunc_02plainstruct() {
 
 	var helloworld = func(name string, p struct {
 		Name    string
@@ -70,7 +72,7 @@ func ExampleToHandlerFunc_2plainstruct() {
 		return
 	}
 
-	hf := ToHandlerFunc(helloworld)
+	hf := jsonhandlerfunc.ToHandlerFunc(helloworld)
 
 	responseBody := httpPostJSON(hf, `
 		{"params": [
@@ -89,7 +91,7 @@ func ExampleToHandlerFunc_2plainstruct() {
 }
 
 // ### 3) Slice, maps, pointers
-func ExampleToHandlerFunc_3slicemapspointers() {
+func ExampleToHandlerFunc_03slicemapspointers() {
 
 	var helloworld = func(
 		names []string,
@@ -107,7 +109,7 @@ func ExampleToHandlerFunc_3slicemapspointers() {
 		return
 	}
 
-	hf := ToHandlerFunc(helloworld)
+	hf := jsonhandlerfunc.ToHandlerFunc(helloworld)
 
 	responseBody := httpPostJSON(hf, `{"params":[ ["Felix"] ]}`)
 	fmt.Println(responseBody)
@@ -137,14 +139,14 @@ func ExampleToHandlerFunc_3slicemapspointers() {
 }
 
 // ### 4) First context: If first parameter is a context.Context, It will be passed in with request.Context()
-func ExampleToHandlerFunc_4requestcontext() {
+func ExampleToHandlerFunc_04requestcontext() {
 	var helloworld = func(ctx context.Context, name string) (r string, err error) {
 		userid := ctx.Value("userid").(string)
 		r = fmt.Sprintf("Hello %s, My user id is %s", name, userid)
 		return
 	}
 
-	hf := ToHandlerFunc(helloworld)
+	hf := jsonhandlerfunc.ToHandlerFunc(helloworld)
 
 	middleware := func(inner http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -169,14 +171,14 @@ func (ce *complicatedError) Error() string {
 }
 
 // ### 5) Errors handling with details in returned json
-func ExampleToHandlerFunc_5errors() {
+func ExampleToHandlerFunc_05errors() {
 
 	var helloworld = func(name string, gender int) (r string, err error) {
 		err = &complicatedError{ErrorCode: 8800, ErrorDeepReason: "It crashed."}
 		return
 	}
 
-	hf := ToHandlerFunc(helloworld)
+	hf := jsonhandlerfunc.ToHandlerFunc(helloworld)
 
 	responseBody := httpPostJSON(hf, `
 		{"params": [
@@ -191,14 +193,14 @@ func ExampleToHandlerFunc_5errors() {
 }
 
 // ### 6) Can use get with empty body to fetch the handler
-func ExampleToHandlerFunc_6getwithemptybody() {
+func ExampleToHandlerFunc_06getwithemptybody() {
 
 	var helloworld = func(ctx context.Context) (r string, err error) {
 		r = "Done"
 		return
 	}
 
-	hf := ToHandlerFunc(helloworld)
+	hf := jsonhandlerfunc.ToHandlerFunc(helloworld)
 
 	ts := httptest.NewServer(hf)
 	defer ts.Close()
@@ -215,14 +217,14 @@ func ExampleToHandlerFunc_6getwithemptybody() {
 }
 
 // ### 7) Use `NewStatusCodeError` or implement `StatusCodeError` interface to set http status code of response.
-func ExampleToHandlerFunc_7httpcode() {
+func ExampleToHandlerFunc_07httpcode() {
 
 	var helloworld = func(name string, gender int) (r string, err error) {
-		err = NewStatusCodeError(http.StatusForbidden, fmt.Errorf("you can't access it"))
+		err = jsonhandlerfunc.NewStatusCodeError(http.StatusForbidden, fmt.Errorf("you can't access it"))
 		return
 	}
 
-	hf := ToHandlerFunc(helloworld)
+	hf := jsonhandlerfunc.ToHandlerFunc(helloworld)
 
 	responseBody, code := httpPostJSONReturnCode(hf, `
 		{"params": [
@@ -240,7 +242,7 @@ func ExampleToHandlerFunc_7httpcode() {
 // ### 8) Pass in another injector func to get arguments from *http.Request and pass it to first func.
 // the argument injector parameters should be `func(w http.ResponseWriter, r *http.Request)`
 // the return values except the last error will be passed to the first func.
-func ExampleToHandlerFunc_8argumentsinjector() {
+func ExampleToHandlerFunc_08argumentsinjector() {
 	var helloworld = func(cartId int, userId string, name string, gender int) (r string, err error) {
 		r = fmt.Sprintf("cardId: %d, userId: %s, name: %s, gender: %d", cartId, userId, name, gender)
 		return
@@ -252,7 +254,7 @@ func ExampleToHandlerFunc_8argumentsinjector() {
 		return
 	}
 
-	hf := ToHandlerFunc(helloworld, argsInjector)
+	hf := jsonhandlerfunc.ToHandlerFunc(helloworld, argsInjector)
 	responseBody, code := httpPostJSONReturnCode(hf, `
 		{"params": [
 			"Gates",
@@ -263,10 +265,10 @@ func ExampleToHandlerFunc_8argumentsinjector() {
 	fmt.Println(responseBody)
 
 	var argsInjectorWithError = func(w http.ResponseWriter, r *http.Request) (cartId int, userId string, err error) {
-		err = NewStatusCodeError(http.StatusForbidden, fmt.Errorf("you can't access it"))
+		err = jsonhandlerfunc.NewStatusCodeError(http.StatusForbidden, fmt.Errorf("you can't access it"))
 		return
 	}
-	hf = ToHandlerFunc(helloworld, argsInjectorWithError)
+	hf = jsonhandlerfunc.ToHandlerFunc(helloworld, argsInjectorWithError)
 	responseBody, code = httpPostJSONReturnCode(hf, `
 		{"params": [
 			"Gates",
@@ -285,7 +287,7 @@ func ExampleToHandlerFunc_8argumentsinjector() {
 		userId = "300"
 		return
 	}
-	hf = ToHandlerFunc(helloworld, cardItInjector, userIdInjecter)
+	hf = jsonhandlerfunc.ToHandlerFunc(helloworld, cardItInjector, userIdInjecter)
 	responseBody, code = httpPostJSONReturnCode(hf, `
 		{"params": [
 			"Gates",
@@ -296,7 +298,7 @@ func ExampleToHandlerFunc_8argumentsinjector() {
 	fmt.Println(responseBody)
 
 	// You can also pass only one injector without main func
-	hf = ToHandlerFunc(cardItInjector)
+	hf = jsonhandlerfunc.ToHandlerFunc(cardItInjector)
 	responseBody, code = httpPostJSONReturnCode(hf, "")
 	fmt.Println(code)
 	fmt.Println(responseBody)
@@ -316,7 +318,7 @@ func ExampleToHandlerFunc_8argumentsinjector() {
 }
 
 // ### 9) panic if injectors type not match
-func ExampleToHandlerFunc_9injectortypenotmatch() {
+func ExampleToHandlerFunc_09injectortypenotmatch() {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println(r)
@@ -331,7 +333,7 @@ func ExampleToHandlerFunc_9injectortypenotmatch() {
 		return
 	}
 
-	ToHandlerFunc(f, inj)
+	jsonhandlerfunc.ToHandlerFunc(f, inj)
 	fmt.Println("DONE")
 	//Output:
 	// func(string, string, string) error params type is [string string string], but injecting [*http.Request float64 string]
@@ -353,7 +355,7 @@ func ExampleForPointerAddress_injectorbug() {
 		err = errors.New(fmt.Sprintf("error %+v", add.Name))
 		return
 	}
-	hf := ToHandlerFunc(f, inj)
+	hf := jsonhandlerfunc.ToHandlerFunc(f, inj)
 
 	responseBody := httpPostJSON(hf, `
 		{"params": [
@@ -374,6 +376,36 @@ func ExampleForPointerAddress_injectorbug() {
 	//
 	//{"results":[{"error":"error ","value":{}}]}
 
+}
+
+// ### 10) Config ErrHandler
+func ExampleToHandlerFunc_10ErrHandler() {
+	var confidentialErr = fmt.Errorf("Internal error, contains confidential information, should not exposed")
+	var errMapping = map[error]error{
+		confidentialErr: errors.New("system error"),
+	}
+
+	cfg := &jsonhandlerfunc.Config{
+		ErrHandler: func(oldErr error) (newErr error) {
+			return errMapping[oldErr]
+		},
+	}
+	var helloworld = func(name string, gender int) (r string, err error) {
+		err = confidentialErr
+		return
+	}
+
+	hf := cfg.ToHandlerFunc(helloworld)
+
+	responseBody := httpPostJSON(hf, `
+		{"params": [
+			"Gates",
+			1
+		]}
+	`)
+	fmt.Println(responseBody)
+	//Output:
+	// {"results":["",{"error":"system error","value":{}}]}
 }
 
 func httpPostJSON(hf http.HandlerFunc, req string) (r string) {
