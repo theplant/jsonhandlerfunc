@@ -131,7 +131,7 @@ func (cfg *Config) ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 			var pv interface{}
 			switch paramType.Kind() {
 			case reflect.Chan:
-				panic("parameters can not be chan type.")
+				panic("params can not be chan type.")
 			case reflect.Ptr:
 				pv = reflect.New(paramType.Elem()).Interface()
 			case reflect.Array, reflect.Slice, reflect.Map:
@@ -154,7 +154,8 @@ func (cfg *Config) ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 			}
 			err := dec.Decode(&req)
 			if err != nil {
-				cfg.returnError(ft, w, fmt.Errorf("%s, params: %#+v", err, params), http.StatusUnprocessableEntity)
+				log.Println("jsonhandlerfunc: decode request params error:", err)
+				cfg.returnError(ft, w, fmt.Errorf("decode request params error"), http.StatusUnprocessableEntity)
 				return
 			}
 		}
@@ -174,11 +175,7 @@ func (cfg *Config) ToHandlerFunc(funcs ...interface{}) http.HandlerFunc {
 		}
 
 		if len(inVals) != numIn {
-			parsedParams := []interface{}{}
-			for _, rv := range inVals {
-				parsedParams = append(parsedParams, rv.Interface())
-			}
-			cfg.returnError(ft, w, fmt.Errorf("require %d parameters, but passed in %d parameters: %#+v", numIn, len(inVals), parsedParams), http.StatusUnprocessableEntity)
+			cfg.returnError(ft, w, fmt.Errorf("require %d params, but passed in %d params", numIn, len(inVals)), http.StatusUnprocessableEntity)
 			return
 		}
 

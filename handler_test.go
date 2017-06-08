@@ -131,11 +131,14 @@ func ExampleToHandlerFunc_03slicemapspointers() {
 		]}
 	`)
 	fmt.Println(responseBody)
-
+	responseBody = httpPostJSON(hf, ``)
+	fmt.Println(responseBody)
 	//Output:
-	// {"results":["",{"error":"require 4 parameters, but passed in 1 parameters: []interface {}{[]string{\"Felix\"}}","value":{}}]}
+	// {"results":["",{"error":"require 4 params, but passed in 1 params","value":{}}]}
 	//
 	// {"results":["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]}
+	//
+	// {"results":["",{"error":"decode request params error","value":{}}]}
 }
 
 // ### 4) First context: If first parameter is a context.Context, It will be passed in with request.Context()
