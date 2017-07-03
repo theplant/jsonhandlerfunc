@@ -9,12 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"testing"
 
-	jerrs "github.com/jjeffery/errors"
-	perrs "github.com/pkg/errors"
 	"github.com/theplant/jsonhandlerfunc"
-	"github.com/theplant/testingutils"
 )
 
 // ### 1) Simple types
@@ -59,7 +55,7 @@ func ExampleToHandlerFunc_01helloworld() {
 	//
 	// {"results":["Hi, Mrs. Gates",null]}
 	//
-	// {"results":["",{"error":"Sorry, I don't know about your gender."}]}
+	// {"results":["",{"error":"Sorry, I don't know about your gender.","value":{}}]}
 }
 
 // ### 2) More complicated types
@@ -138,11 +134,11 @@ func ExampleToHandlerFunc_03slicemapspointers() {
 	responseBody = httpPostJSON(hf, ``)
 	fmt.Println(responseBody)
 	//Output:
-	// {"results":["",{"error":"require 4 params, but passed in 1 params"}]}
+	// {"results":["",{"error":"require 4 params, but passed in 1 params","value":{}}]}
 	//
 	// {"results":["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]}
 	//
-	// {"results":["",{"error":"decode request params error"}]}
+	// {"results":["",{"error":"decode request params error","value":{}}]}
 }
 
 // ### 4) First context: If first parameter is a context.Context, It will be passed in with request.Context()
@@ -196,7 +192,7 @@ func ExampleToHandlerFunc_05errors() {
 	fmt.Println(responseBody)
 
 	//Output:
-	// {"results":["",{"error":"It crashed."}]}
+	// {"results":["",{"error":"It crashed.","value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]}
 }
 
 // ### 6) Can use get with empty body to fetch the handler
@@ -243,7 +239,7 @@ func ExampleToHandlerFunc_07httpcode() {
 	fmt.Println(responseBody)
 	//Output:
 	// 403
-	// {"results":["",{"error":"you can't access it"}]}
+	// {"results":["",{"error":"you can't access it","value":{}}]}
 }
 
 // ### 8) Pass in another injector func to get arguments from *http.Request and pass it to first func.
@@ -315,7 +311,7 @@ func ExampleToHandlerFunc_08argumentsinjector() {
 	// {"results":["cardId: 20, userId: 100, name: Gates, gender: 2",null]}
 	//
 	// 403
-	// {"results":["",{"error":"you can't access it"}]}
+	// {"results":["",{"error":"you can't access it","value":{}}]}
 	//
 	// 200
 	// {"results":["cardId: 30, userId: 300, name: Gates, gender: 2",null]}
@@ -379,9 +375,9 @@ func ExampleForPointerAddress_injectorbug() {
 	`)
 	fmt.Println(responseBody)
 	//Output:
-	//{"results":[{"error":"error Felix"}]}
+	//{"results":[{"error":"error Felix","value":{}}]}
 	//
-	//{"results":[{"error":"error "}]}
+	//{"results":[{"error":"error ","value":{}}]}
 
 }
 
@@ -412,7 +408,7 @@ func ExampleToHandlerFunc_10ErrHandler() {
 	`)
 	fmt.Println(responseBody)
 	//Output:
-	// {"results":["",{"error":"system error"}]}
+	// {"results":["",{"error":"system error","value":{}}]}
 }
 
 func httpPostJSON(hf http.HandlerFunc, req string) (r string) {
@@ -426,33 +422,11 @@ func httpPostJSONReturnCode(hf http.HandlerFunc, req string) (r string, code int
 	res, err := http.Post(ts.URL, "application/json", strings.NewReader(req))
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	code = res.StatusCode
 	b, _ := ioutil.ReadAll(res.Body)
 	res.Body.Close()
 	r = string(b)
 	return
-}
-
-func TestJSONEncodeError(t *testing.T) {
-	var helloworld = func(name string, gender int) (r string, err error) {
-		err = errors.New("hi")
-		err = perrs.WithStack(jerrs.With("a", "b").Wrap(err, "hi"))
-		return
-	}
-
-	hf := jsonhandlerfunc.ToHandlerFunc(helloworld)
-
-	responseBody := httpPostJSON(hf, `
-		{"params": [
-			"Gates",
-			1
-		]}
-	`)
-
-	diff := testingutils.PrettyJsonDiff(`{"results":["",{"error":"hi a=b: hi"}]}`, responseBody)
-	if len(diff) > 0 {
-		t.Error(diff)
-	}
 }
