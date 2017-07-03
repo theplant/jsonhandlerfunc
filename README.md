@@ -78,7 +78,7 @@ Will be injected to first func's first few arguments.
 	//
 	// {"results":["Hi, Mrs. Gates",null]}
 	//
-	// {"results":["",{"error":"Sorry, I don't know about your gender.","value":{}}]}
+	// {"results":["",{"error":"Sorry, I don't know about your gender."}]}
 ```
 
 ### 2) More complicated types
@@ -155,11 +155,11 @@ Will be injected to first func's first few arguments.
 	responseBody = httpPostJSON(hf, ``)
 	fmt.Println(responseBody)
 	//Output:
-	// {"results":["",{"error":"require 4 params, but passed in 1 params","value":{}}]}
+	// {"results":["",{"error":"require 4 params, but passed in 1 params"}]}
 	//
 	// {"results":["Hi, Mr. Felix, Your zipcode is 100, Your gender is Male",null]}
 	//
-	// {"results":["",{"error":"decode request params error","value":{}}]}
+	// {"results":["",{"error":"decode request params error"}]}
 ```
 
 ### 4) First context: If first parameter is a context.Context, It will be passed in with request.Context()
@@ -203,7 +203,7 @@ Will be injected to first func's first few arguments.
 	fmt.Println(responseBody)
 	
 	//Output:
-	// {"results":["",{"error":"It crashed.","value":{"ErrorCode":8800,"ErrorDeepReason":"It crashed."}}]}
+	// {"results":["",{"error":"It crashed."}]}
 ```
 
 ### 6) Can use get with empty body to fetch the handler
@@ -248,7 +248,7 @@ Will be injected to first func's first few arguments.
 	fmt.Println(responseBody)
 	//Output:
 	// 403
-	// {"results":["",{"error":"you can't access it","value":{}}]}
+	// {"results":["",{"error":"you can't access it"}]}
 ```
 
 ### 8) Pass in another injector func to get arguments from *http.Request and pass it to first func.
@@ -320,7 +320,7 @@ the return values except the last error will be passed to the first func.
 	// {"results":["cardId: 20, userId: 100, name: Gates, gender: 2",null]}
 	//
 	// 403
-	// {"results":["",{"error":"you can't access it","value":{}}]}
+	// {"results":["",{"error":"you can't access it"}]}
 	//
 	// 200
 	// {"results":["cardId: 30, userId: 300, name: Gates, gender: 2",null]}
@@ -378,7 +378,7 @@ the return values except the last error will be passed to the first func.
 	`)
 	fmt.Println(responseBody)
 	//Output:
-	// {"results":["",{"error":"system error","value":{}}]}
+	// {"results":["",{"error":"system error"}]}
 ```
 
 
@@ -438,8 +438,7 @@ type Resp struct {
 ## Type: Response Error
 ``` go
 type ResponseError struct {
-    Error string      `json:"error,omitempty"`
-    Value interface{} `json:"value,omitempty"`
+    Error string `json:"error,omitempty"`
 }
 ```
 ResponseError is error of the Go func return values will be wrapped with this struct, So that error details can be exposed as json.

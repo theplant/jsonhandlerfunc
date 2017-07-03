@@ -209,14 +209,14 @@ func (cfg *Config) returnVals(outVals []reflect.Value) (httpCode int, outs []int
 		if cfg.ErrHandler != nil {
 			err = cfg.ErrHandler(err)
 		}
-		outs = append(outs, &ResponseError{Error: err.Error(), Value: err})
+		outs = append(outs, &ResponseError{Error: err.Error()})
 	} else {
 		outs = append(outs, nil)
 	}
 	return
 }
 
-func writeJSONResponse(w http.ResponseWriter, out interface{}) {
+func writeJSONResponse(w http.ResponseWriter, out []interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	enc := json.NewEncoder(w)
 	err := enc.Encode(Resp{Results: out})
@@ -253,8 +253,7 @@ type StatusCodeError interface {
 ResponseError is error of the Go func return values will be wrapped with this struct, So that error details can be exposed as json.
 */
 type ResponseError struct {
-	Error string      `json:"error,omitempty"`
-	Value interface{} `json:"value,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
 type Req struct {
@@ -357,7 +356,7 @@ func (cfg *Config) returnError(ft reflect.Type, w http.ResponseWriter, err error
 	if cfg.ErrHandler != nil {
 		err = cfg.ErrHandler(err)
 	}
-	errOuts[errIndex] = &ResponseError{Error: err.Error(), Value: err}
+	errOuts[errIndex] = &ResponseError{Error: err.Error()}
 	w.WriteHeader(httpCode)
 	writeJSONResponse(w, errOuts)
 	return
